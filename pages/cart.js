@@ -80,8 +80,8 @@ export default function CartPage() {
 
   useEffect(() => {
     async function fetchData() {
-      if (cartProducts.length > 0) {
-        const data = await fetchProductsByIdsX(cartProducts);
+      if (Object.keys(cartProducts).length > 0) {
+        const data = await fetchProductsByIdsX(Object.keys(cartProducts));
         if (data && data.length > 0) {
           setProducts(data);
           console.log(data);
@@ -122,9 +122,13 @@ export default function CartPage() {
   }
 
   let total = 0;
-  for (const productId of cartProducts) {
-    const price = products.find(p => p.id === productId)?.price || 0;
-    total += price;
+  for (const productId in cartProducts) {
+    if (cartProducts.hasOwnProperty(productId)) {
+      const product = products.find(p => p.id === Number(productId));
+      const price = product ? product.price : 0;
+      const quantity = cartProducts[productId];
+      total += price * quantity;
+    }
   }
 
   if (isSuccess) {
@@ -150,7 +154,7 @@ export default function CartPage() {
         <ColumnsWrapper>
           <Box>
             <h2>Cart</h2>
-            {!cartProducts?.length && (
+            {Object.keys(cartProducts).length === 0 && (
               <div>Your cart is empty</div>
             )}
             {products?.length > 0 && (
@@ -164,28 +168,25 @@ export default function CartPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map(product => (
-                      <tr key={product.id}>
-                        <ProductInfoCell>
-                          <ProductImageBox>
-                            <img src={product.images[0]} alt="" />
-                          </ProductImageBox>
-                          {product.title}
-                        </ProductInfoCell>
-                        <td>
-                          <Button
-                            onClick={() => lessOfThisProduct(product.id)}>-</Button>
-                          <QuantityLabel>
-                            {cartProducts.filter(id => id === product.id).length}
-                          </QuantityLabel>
-                          <Button
-                            onClick={() => moreOfThisProduct(product.id)}>+</Button>
-                        </td>
-                        <td>
-                          ${cartProducts.filter(id => id === product.id).length * product.price}
-                        </td>
-                      </tr>
-                    ))}
+                    {products.map(product => {
+                      const quantity = cartProducts[product.id] || 0;
+                      return (
+                        <tr key={product.id}>
+                          <ProductInfoCell>
+                            <ProductImageBox>
+                              <img src={product.images[0]} alt="" />
+                            </ProductImageBox>
+                            {product.title}
+                          </ProductInfoCell>
+                          <td>
+                            <Button onClick={() => removeProduct(product.id)}>-</Button>
+                            <QuantityLabel>{quantity}</QuantityLabel>
+                            <Button onClick={() => addProduct(product.id)}>+</Button>
+                          </td>
+                          <td>${quantity * product.price}</td>
+                        </tr>
+                      );
+                    })}
                     <tr>
                       <td></td>
                       <td></td>
@@ -199,7 +200,7 @@ export default function CartPage() {
               Clear Cart
             </Button>
           </Box>
-          {!!cartProducts?.length && (
+          {Object.keys(cartProducts).length > 0 && (
             <Box>
               <h2>Order information</h2>
               <Input type="text"
