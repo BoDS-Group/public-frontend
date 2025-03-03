@@ -1,6 +1,7 @@
 import { createGlobalStyle } from "styled-components";
 import { CartContextProvider } from "@/components/CartContext";
 import Head from "next/head";
+import '../styles/globals.css';
 
 const GlobalStyles = createGlobalStyle`
   body {

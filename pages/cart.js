@@ -161,36 +161,36 @@ export default function CartPage() {
               <>
                 <Table>
                   <thead>
-                    <tr>
-                      <th>Product</th>
-                      <th>Quantity</th>
-                      <th>Price</th>
+                    <tr className="pb-2 pt-2 border-b-2 border-gray-200">
+                      <th className="w-1/2 text-left">Product</th>
+                      <th className="w-1/4 text-center !important">Quantity</th>
+                      <th className="w-1/4 text-center !important">Price</th>
                     </tr>
                   </thead>
                   <tbody>
                     {products.map(product => {
                       const quantity = cartProducts[product.id] || 0;
                       return (
-                        <tr key={product.id}>
+                        <tr key={product.id} className="border-b-2 border-gray-100">
                           <ProductInfoCell>
                             <ProductImageBox>
                               <img src={product.images[0]} alt="" />
                             </ProductImageBox>
                             {product.title}
                           </ProductInfoCell>
-                          <td>
+                          <td className="text-center">
                             <Button onClick={() => removeProduct(product.id)}>-</Button>
                             <QuantityLabel>{quantity}</QuantityLabel>
                             <Button onClick={() => addProduct(product.id)}>+</Button>
                           </td>
-                          <td>${quantity * product.price}</td>
+                          <td className="text-center">€{(quantity * product.price).toFixed(2)}</td>
                         </tr>
                       );
                     })}
                     <tr>
                       <td></td>
                       <td></td>
-                      <td>${total}</td>
+                      <td className="text-center">€{(total).toFixed(2)}</td>
                     </tr>
                   </tbody>
                 </Table>

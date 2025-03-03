@@ -15,6 +15,9 @@ const ColWrapper = styled.div`
   display: grid;
   grid-template-columns: 1fr;
   @media screen and (min-width: 768px) {
+    grid-template-columns: 1.2fr 0.8fr;
+  }
+  @media screen and (min-width: 1024px) {
     grid-template-columns: .8fr 1.2fr;
   }
   gap: 40px;
@@ -22,7 +25,7 @@ const ColWrapper = styled.div`
 `;
 const PriceRow = styled.div`
   display: flex;
-  gap: 20px;
+  gap: 40px;
   align-items: center;
 `;
 const Price = styled.span`
@@ -83,11 +86,10 @@ export default function ProductPage() {
             <ProductImages images={imageURLs} />
           </WhiteBox>
           <div>
-            <Title>{productData.title}</Title>
-            <p>{productData.description}</p>
+            <Title className="mb-4">{productData.title}</Title>
             <PriceRow>
               <div>
-                <Price>${productData.price}</Price>
+                <Price>€{productData.price}</Price>
               </div>
               <div>
                 <Button primary onClick={() => addProduct(productData.id)}>
@@ -97,6 +99,7 @@ export default function ProductPage() {
             </PriceRow>
           </div>
         </ColWrapper>
+        <p>{productData.description}</p>
       </Center>
     </>
   );

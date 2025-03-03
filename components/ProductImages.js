@@ -7,7 +7,9 @@ const Image = styled.img`
   `;
 const BigImage = styled.img`
   max-width: 100%;
-  max-height: 200px;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 `;
 const ImageButtons = styled.div`
     display: flex;
@@ -29,6 +31,22 @@ const ImageButton = styled.div`
   `;
 const BigImageWrapper = styled.div`
   text-align: center;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80vh;
+  max-height: 500px;
+  position: relative;
+  img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
 `;
 
 export default function ProductImages({images}) {
