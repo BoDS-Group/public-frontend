@@ -111,13 +111,13 @@ export default function ProductBox({ id, title, description, price, images }) {
     if (images && images.length > 0) {
       fetchImage(images[0]);
     }
-    console.log(imageURL);
+    // console.log(imageURL);
   }, [images]);
 
-  if (images && images.length > 0) {
-    console.log("ProductBox:", id, title, description, price, images[0]);
-    // fetchImage(images[0]);
-  }
+  // if (images && images.length > 0) {
+  //   // console.log("ProductBox:", id, title, description, price, images[0]);
+  //   // fetchImage(images[0]);
+  // }
 
   return (
     <ProductWrapper>

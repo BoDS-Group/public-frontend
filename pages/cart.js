@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import styled from "styled-components";
 import Center from "@/components/Center";
 import Button from "@/components/Button";
-import { useContext, useEffect, useState } from "react";
+import { use, useContext, useEffect, useState } from "react";
 import { CartContext } from "@/components/CartContext";
 import axiosInstance from "@/components/AxiosInstance";
 import axios from 'axios';
@@ -11,6 +11,7 @@ import Input from "@/components/Input";
 import { fetchProductsByIdsX } from "@/utils/api";
 import Modal from "react-modal";
 import { loadStripe } from '@stripe/stripe-js';
+import { useRouter } from "next/router";
 
 const ColumnsWrapper = styled.div`
   display: grid;
@@ -95,6 +96,7 @@ export default function CartPage() {
   const [promptLogin, setPromptLogin] = useState(false);
   const [token, setToken] = useState(null);
   const [goToPayment, setGoToPayment] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     async function fetchData() {
@@ -131,9 +133,21 @@ export default function CartPage() {
     }
     if (window?.location.href.includes('success')) {
       setIsSuccess(true);
-      clearCart();
+      try {
+        clearCart();
+        console.log('Cart cleared successfully');
+      } catch (error) {
+        console.error('Error clearing cart:', error);
+      }
     }
   }, []);
+
+  useEffect(() => {
+    if (isSuccess) {
+      // setShowModal(true);
+      clearCart();
+    }
+  }, [isSuccess]);
 
   function moreOfThisProduct(id) {
     addProduct(id);
@@ -212,6 +226,10 @@ export default function CartPage() {
     }
   }
 
+  function redirectToProducts() {
+    router.push('/products');
+  }
+
   let total = 0;
   for (const productId in cartProducts) {
     if (cartProducts.hasOwnProperty(productId)) {
@@ -233,6 +251,9 @@ export default function CartPage() {
               <p>We will email you when your order will be sent.</p>
             </Box>
           </ColumnsWrapper>
+            <Button black onClick={redirectToProducts}>
+              Explore More
+            </Button>
         </Center>
       </>
     );
