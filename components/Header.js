@@ -1,7 +1,7 @@
 import Link from "next/link";
 import styled from "styled-components";
 import Center from "@/components/Center";
-import {useContext, useState} from "react";
+import {useContext, useState, useEffect} from "react";
 import {CartContext} from "@/components/CartContext";
 import BarsIcon from "@/components/icons/Bars";
 
@@ -61,10 +61,35 @@ const NavButton = styled.button`
     display: none;
   }
 `;
+const LogoutButton = styled.button`
+  background-color: transparent;
+  color: white;
+  border: none;
+  cursor: pointer;
+  padding: 10px 0;
+  @media screen and (min-width: 768px) {
+    padding: 0;
+  }
+`;
 
 export default function Header() {
   const {cartProducts} = useContext(CartContext);
   const [mobileNavActive,setMobileNavActive] = useState(false);
+  const [token, setToken] = useState(null);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      setToken(storedToken);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    window.location.reload();
+  };
+
   return (
     <StyledHeader>
       <Center>
@@ -76,6 +101,11 @@ export default function Header() {
             <NavLink href={'/categories'}>Categories</NavLink>
             <NavLink href={'/account'}>Account</NavLink>
             <NavLink href={'/cart'}>Cart ({Object.keys(cartProducts).length})</NavLink>
+            {token && (
+              <LogoutButton onClick={handleLogout}>
+                Logout
+              </LogoutButton>
+            )}
           </StyledNav>
           <NavButton onClick={() => setMobileNavActive(prev => !prev)}>
             <BarsIcon />

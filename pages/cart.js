@@ -5,19 +5,19 @@ import Button from "@/components/Button";
 import { use, useContext, useEffect, useState } from "react";
 import { CartContext } from "@/components/CartContext";
 import axiosInstance from "@/components/AxiosInstance";
-import axios from 'axios';
+import axios from "axios";
 import Table from "@/components/Table";
 import Input from "@/components/Input";
 import { fetchProductsByIdsX } from "@/utils/api";
 import Modal from "react-modal";
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe } from "@stripe/stripe-js";
 import { useRouter } from "next/router";
 
 const ColumnsWrapper = styled.div`
   display: grid;
   grid-template-columns: 1fr;
   @media screen and (min-width: 768px) {
-    grid-template-columns: 1.2fr .8fr;
+    grid-template-columns: 1.2fr 0.8fr;
   }
   gap: 40px;
   margin-top: 40px;
@@ -80,22 +80,24 @@ const ModalContent = styled.div`
 `;
 
 export default function CartPage() {
-  const { cartProducts, addProduct, removeProduct, clearCart } = useContext(CartContext);
+  const { cartProducts, addProduct, removeProduct, clearCart } =
+    useContext(CartContext);
   const [products, setProducts] = useState([]);
-  const [name, setName] = useState('Md Hamidur Rahman Khan');
-  const [email, setEmail] = useState('hamidurrk@gmail.com');
-  const [phoneNumber, setPhoneNumber] = useState('0417405324');
-  const [city, setCity] = useState('Lahti');
-  const [postalCode, setPostalCode] = useState('15300');
-  const [streetAddress, setStreetAddress] = useState('Oikokatu 2');
-  const [country, setCountry] = useState('Finland');
-  const [password, setPassword] = useState('');
+  const [name, setName] = useState("Md Hamidur Rahman Khan");
+  const [email, setEmail] = useState("hamidurrk@gmail.com");
+  const [phoneNumber, setPhoneNumber] = useState("0417405324");
+  const [city, setCity] = useState("Lahti");
+  const [postalCode, setPostalCode] = useState("15300");
+  const [streetAddress, setStreetAddress] = useState("Oikokatu 2");
+  const [country, setCountry] = useState("Finland");
+  const [password, setPassword] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [promptLogin, setPromptLogin] = useState(false);
   const [token, setToken] = useState(null);
   const [goToPayment, setGoToPayment] = useState(false);
+  const [deliveryOption, setDeliveryOption] = useState("storePickup");
   const router = useRouter();
 
   useEffect(() => {
@@ -110,7 +112,7 @@ export default function CartPage() {
       }
     }
     fetchData();
-    console.log(localStorage.getItem('token'));
+    console.log(localStorage.getItem("token"));
   }, [cartProducts]);
 
   useEffect(() => {
@@ -128,23 +130,20 @@ export default function CartPage() {
   }, [goToPayment]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return;
     }
-    if (window?.location.href.includes('success')) {
+    if (window?.location.href.includes("success")) {
       setIsSuccess(true);
-      try {
-        clearCart();
-        console.log('Cart cleared successfully');
-      } catch (error) {
-        console.error('Error clearing cart:', error);
-      }
     }
   }, []);
 
   useEffect(() => {
     if (isSuccess) {
-      // setShowModal(true);
+      async function submitOrderAsync() {
+        await submitOrder();
+      }
+      submitOrderAsync();
       clearCart();
     }
   }, [isSuccess]);
@@ -159,17 +158,26 @@ export default function CartPage() {
 
   async function checkOut() {
     try {
-      const response = await axiosInstance.post('/orders/checkout', {
+      const endpoint =
+        deliveryOption === "storePickup"
+          ? "/orders/checkout-offline"
+          : "/orders/checkout-online";
+      const payload = {
         cart_items: cartProducts,
         name,
         email,
         phone_number: phoneNumber,
-        city,
-        postal_code: postalCode,
-        street_address: streetAddress,
-        country,
-        password,
-      });
+      };
+
+      if (deliveryOption === "homeDelivery") {
+        payload.city = city;
+        payload.postal_code = postalCode;
+        payload.street_address = streetAddress;
+        payload.country = country;
+        payload.password = password;
+      }
+
+      const response = await axiosInstance.post(endpoint, payload);
       if (response.data.message === "Token received") {
         setGoToPayment(true);
       }
@@ -178,16 +186,13 @@ export default function CartPage() {
         setToken(access_token);
         console.log("Checkout success:", access_token);
       }
-      // if (response.data.url) {
-      //   window.location = response.data.url;
-      // }
     } catch (err) {
       if (err.response && err.response.data && err.response.data.detail) {
         console.error("Checkout error detail:", err.response.data.detail);
         setError(err.response.data.detail);
         if (err.response.data.detail === "Password or JWT token required") {
           setShowModal(true);
-        } 
+        }
         if (err.response.data.detail === "User already exists") {
           setPromptLogin(true);
           setShowModal(true);
@@ -199,6 +204,40 @@ export default function CartPage() {
     }
   }
 
+  async function submitOrder() {
+    const endpoint =
+      deliveryOption === "storePickup"
+        ? "/orders/submit-order-offline"
+        : "/orders/submit-order-online";
+
+    const cartItems = products
+      .map((p) => ({
+        title: p.title,
+        price: p.price,
+        quantity: cartProducts[p.id],
+      }))
+      .filter((item) => item.quantity > 0);
+
+    const payload = {
+      line_items: cartItems,
+      cart_items: cartProducts,
+      name,
+      email,
+      phone_number: phoneNumber,
+    };
+
+    if (deliveryOption === "homeDelivery") {
+      payload.city = city;
+      payload.postal_code = postalCode;
+      payload.street_address = streetAddress;
+      payload.country = country;
+      payload.password = password;
+    }
+
+    const response = await axiosInstance.post(endpoint, payload);
+    console.log("Checkout success:", response.data);
+  }
+
   function handleModalSubmit() {
     setShowModal(false);
     checkOut();
@@ -206,34 +245,40 @@ export default function CartPage() {
 
   async function stripeCheckOut() {
     try {
-      const cartItems = products.map((p) => ({
-        title: p.title,
-        price: p.price,
-        quantity: cartProducts[p.id],
-      })).filter(item => item.quantity > 0);
+      const cartItems = products
+        .map((p) => ({
+          title: p.title,
+          price: p.price,
+          quantity: cartProducts[p.id],
+        }))
+        .filter((item) => item.quantity > 0);
       console.log("Cart items:", cartItems);
       setGoToPayment(false);
-      // Call the FastAPI route
-      const { data } = await axiosInstance.post('/orders/create-checkout-session', {
-        cart_items: cartItems, 
-      });
+      const { data } = await axiosInstance.post(
+        "/orders/create-checkout-session",
+        {
+          cart_items: cartItems,
+        }
+      );
       const { sessionId } = data;
-  
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+
+      const stripe = await loadStripe(
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+      );
       await stripe.redirectToCheckout({ sessionId });
     } catch (err) {
-      console.error('Stripe checkout error:', err);
+      console.error("Stripe checkout error:", err);
     }
   }
 
   function redirectToProducts() {
-    router.push('/products');
+    router.push("/products");
   }
 
   let total = 0;
   for (const productId in cartProducts) {
     if (cartProducts.hasOwnProperty(productId)) {
-      const product = products.find(p => p.id === Number(productId));
+      const product = products.find((p) => p.id === Number(productId));
       const price = product ? product.price : 0;
       const quantity = cartProducts[productId];
       total += price * quantity;
@@ -251,9 +296,9 @@ export default function CartPage() {
               <p>We will email you when your order will be sent.</p>
             </Box>
           </ColumnsWrapper>
-            <Button black onClick={redirectToProducts}>
-              Explore More
-            </Button>
+          <Button black onClick={redirectToProducts}>
+            Explore More
+          </Button>
         </Center>
       </>
     );
@@ -280,10 +325,13 @@ export default function CartPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map(product => {
+                    {products.map((product) => {
                       const quantity = cartProducts[product.id] || 0;
                       return (
-                        <tr key={product.id} className="border-b-2 border-gray-100">
+                        <tr
+                          key={product.id}
+                          className="border-b-2 border-gray-100"
+                        >
                           <ProductInfoCell>
                             <ProductImageBox>
                               <img src={product.images[0]} alt="" />
@@ -291,18 +339,24 @@ export default function CartPage() {
                             {product.title}
                           </ProductInfoCell>
                           <td className="text-center">
-                            <Button onClick={() => removeProduct(product.id)}>-</Button>
+                            <Button onClick={() => removeProduct(product.id)}>
+                              -
+                            </Button>
                             <QuantityLabel>{quantity}</QuantityLabel>
-                            <Button onClick={() => addProduct(product.id)}>+</Button>
+                            <Button onClick={() => addProduct(product.id)}>
+                              +
+                            </Button>
                           </td>
-                          <td className="text-center">€{(quantity * product.price).toFixed(2)}</td>
+                          <td className="text-center">
+                            €{(quantity * product.price).toFixed(2)}
+                          </td>
                         </tr>
                       );
                     })}
                     <tr>
                       <td></td>
                       <td></td>
-                      <td className="text-center">€{(total).toFixed(2)}</td>
+                      <td className="text-center">€{total.toFixed(2)}</td>
                     </tr>
                   </tbody>
                 </Table>
@@ -315,48 +369,89 @@ export default function CartPage() {
           {Object.keys(cartProducts).length > 0 && (
             <Box>
               <h2>Order information</h2>
-              <Input type="text"
-                     placeholder="Name"
-                     value={name}
-                     name="name"
-                     onChange={ev => setName(ev.target.value)} />
-              <Input type="text"
-                     placeholder="Email"
-                     value={email}
-                     name="email"
-                     onChange={ev => setEmail(ev.target.value)} />
-              <Input type="text"
-                     placeholder="Phone Number"
-                     value={phoneNumber}
-                     name="phoneNumber"
-                     onChange={ev => setPhoneNumber(ev.target.value)} />
-              <CityHolder>
-                <Input type="text"
-                       placeholder="City"
-                       value={city}
-                       name="city"
-                       onChange={ev => setCity(ev.target.value)} />
-                <Input type="text"
-                       placeholder="Postal Code"
-                       value={postalCode}
-                       name="postalCode"
-                       onChange={ev => setPostalCode(ev.target.value)} />
-              </CityHolder>
-              <Input type="text"
-                     placeholder="Street Address"
-                     value={streetAddress}
-                     name="streetAddress"
-                     onChange={ev => setStreetAddress(ev.target.value)} />
-              <Input type="text"
-                     placeholder="Country"
-                     value={country}
-                     name="country"
-                     onChange={ev => setCountry(ev.target.value)} />
-              <Button black block
-                      onClick={checkOut}>
+              <div>
+                <label>
+                  <input
+                    type="radio"
+                    value="storePickup"
+                    checked={deliveryOption === "storePickup"}
+                    onChange={() => setDeliveryOption("storePickup")}
+                  />
+                  Store Pickup
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    value="homeDelivery"
+                    checked={deliveryOption === "homeDelivery"}
+                    onChange={() => setDeliveryOption("homeDelivery")}
+                  />
+                  Home Delivery
+                </label>
+              </div>
+              <Input
+                type="text"
+                placeholder="Name"
+                value={name}
+                name="name"
+                onChange={(ev) => setName(ev.target.value)}
+              />
+              <Input
+                type="text"
+                placeholder="Email"
+                value={email}
+                name="email"
+                onChange={(ev) => setEmail(ev.target.value)}
+              />
+              <Input
+                type="text"
+                placeholder="Phone Number"
+                value={phoneNumber}
+                name="phoneNumber"
+                onChange={(ev) => setPhoneNumber(ev.target.value)}
+              />
+              {deliveryOption === "homeDelivery" && (
+                <>
+                  <CityHolder>
+                    <Input
+                      type="text"
+                      placeholder="City"
+                      value={city}
+                      name="city"
+                      onChange={(ev) => setCity(ev.target.value)}
+                    />
+                    <Input
+                      type="text"
+                      placeholder="Postal Code"
+                      value={postalCode}
+                      name="postalCode"
+                      onChange={(ev) => setPostalCode(ev.target.value)}
+                    />
+                  </CityHolder>
+                  <Input
+                    type="text"
+                    placeholder="Street Address"
+                    value={streetAddress}
+                    name="streetAddress"
+                    onChange={(ev) => setStreetAddress(ev.target.value)}
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Country"
+                    value={country}
+                    name="country"
+                    onChange={(ev) => setCountry(ev.target.value)}
+                  />
+                </>
+              )}
+              <Button black block onClick={checkOut}>
                 Check Out
               </Button>
-              {error && <div style={{ color: 'red', marginTop: '10px' }}>{typeof error === 'string' ? error : JSON.stringify(error)}</div>}
+              {error && (
+                <div style={{ color: "red", marginTop: "10px" }}>
+                  {typeof error === "string" ? error : JSON.stringify(error)}
+                </div>
+              )}
             </Box>
           )}
         </ColumnsWrapper>
@@ -369,24 +464,31 @@ export default function CartPage() {
         className="w-1/2 mx-auto mt-20"
       >
         <ModalContent>
-        <h2>{promptLogin ? "Login Required" : "Enter Password to Create New Account"}</h2>
+          <h2>
+            {promptLogin
+              ? "Login Required"
+              : "Enter Password to Create New Account"}
+          </h2>
           {promptLogin ? (
             <p>Please log in to continue with your order.</p>
           ) : (
-            <p>You need to create an account before ordering. Please check your email and enter your password.</p>
+            <p>
+              You need to create an account before ordering. Please check your
+              email and enter your password.
+            </p>
           )}
           <Input
             type="email"
             placeholder="Email"
             value={email}
-            onChange={ev => setEmail(ev.target.value)}
+            onChange={(ev) => setEmail(ev.target.value)}
             readOnly={promptLogin} // Add this line to make the input read-only if promptLogin is true
           />
           <Input
             type="password"
             placeholder="Password"
             value={password}
-            onChange={ev => setPassword(ev.target.value)}
+            onChange={(ev) => setPassword(ev.target.value)}
           />
           <Button black block onClick={handleModalSubmit}>
             Submit
