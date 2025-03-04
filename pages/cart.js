@@ -4,10 +4,13 @@ import Center from "@/components/Center";
 import Button from "@/components/Button";
 import { useContext, useEffect, useState } from "react";
 import { CartContext } from "@/components/CartContext";
-import axios from "axios";
+import axiosInstance from "@/components/AxiosInstance";
+import axios from 'axios';
 import Table from "@/components/Table";
 import Input from "@/components/Input";
 import { fetchProductsByIdsX } from "@/utils/api";
+import Modal from "react-modal";
+import { loadStripe } from '@stripe/stripe-js';
 
 const ColumnsWrapper = styled.div`
   display: grid;
@@ -67,16 +70,31 @@ const CityHolder = styled.div`
   gap: 5px;
 `;
 
+const ModalContent = styled.div`
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 500px;
+  margin: auto;
+`;
+
 export default function CartPage() {
   const { cartProducts, addProduct, removeProduct, clearCart } = useContext(CartContext);
   const [products, setProducts] = useState([]);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [city, setCity] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [streetAddress, setStreetAddress] = useState('');
-  const [country, setCountry] = useState('');
+  const [name, setName] = useState('Md Hamidur Rahman Khan');
+  const [email, setEmail] = useState('hamidurrk@gmail.com');
+  const [phoneNumber, setPhoneNumber] = useState('0417405324');
+  const [city, setCity] = useState('Lahti');
+  const [postalCode, setPostalCode] = useState('15300');
+  const [streetAddress, setStreetAddress] = useState('Oikokatu 2');
+  const [country, setCountry] = useState('Finland');
+  const [password, setPassword] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [promptLogin, setPromptLogin] = useState(false);
+  const [token, setToken] = useState(null);
+  const [goToPayment, setGoToPayment] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -84,14 +102,28 @@ export default function CartPage() {
         const data = await fetchProductsByIdsX(Object.keys(cartProducts));
         if (data && data.length > 0) {
           setProducts(data);
-          console.log(data);
         }
       } else {
         setProducts([]);
       }
     }
     fetchData();
+    console.log(localStorage.getItem('token'));
   }, [cartProducts]);
+
+  useEffect(() => {
+    if (token) {
+      localStorage.setItem("token", access_token);
+      setPromptLogin(false);
+      setGoToPayment(true);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (goToPayment) {
+      stripeCheckOut();
+    }
+  }, [goToPayment]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -111,13 +143,72 @@ export default function CartPage() {
     removeProduct(id);
   }
 
-  async function goToPayment() {
-    const response = await axios.post('/api/checkout', {
-      name, email, city, postalCode, streetAddress, country,
-      cartProducts,
-    });
-    if (response.data.url) {
-      window.location = response.data.url;
+  async function checkOut() {
+    try {
+      const response = await axiosInstance.post('/orders/checkout', {
+        cart_items: cartProducts,
+        name,
+        email,
+        phone_number: phoneNumber,
+        city,
+        postal_code: postalCode,
+        street_address: streetAddress,
+        country,
+        password,
+      });
+      if (response.data.message === "Token received") {
+        setGoToPayment(true);
+      }
+      if (response.data) {
+        const { access_token } = response.data;
+        setToken(access_token);
+        console.log("Checkout success:", access_token);
+      }
+      // if (response.data.url) {
+      //   window.location = response.data.url;
+      // }
+    } catch (err) {
+      if (err.response && err.response.data && err.response.data.detail) {
+        console.error("Checkout error detail:", err.response.data.detail);
+        setError(err.response.data.detail);
+        if (err.response.data.detail === "Password or JWT token required") {
+          setShowModal(true);
+        } 
+        if (err.response.data.detail === "User already exists") {
+          setPromptLogin(true);
+          setShowModal(true);
+        }
+      } else {
+        console.error("Checkout error:", err);
+        setError("Failed to process the order. Please try again later.");
+      }
+    }
+  }
+
+  function handleModalSubmit() {
+    setShowModal(false);
+    checkOut();
+  }
+
+  async function stripeCheckOut() {
+    try {
+      const cartItems = products.map((p) => ({
+        title: p.title,
+        price: p.price,
+        quantity: cartProducts[p.id],
+      })).filter(item => item.quantity > 0);
+      console.log("Cart items:", cartItems);
+      setGoToPayment(false);
+      // Call the FastAPI route
+      const { data } = await axiosInstance.post('/orders/create-checkout-session', {
+        cart_items: cartItems, 
+      });
+      const { sessionId } = data;
+  
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+      await stripe.redirectToCheckout({ sessionId });
+    } catch (err) {
+      console.error('Stripe checkout error:', err);
     }
   }
 
@@ -213,6 +304,11 @@ export default function CartPage() {
                      value={email}
                      name="email"
                      onChange={ev => setEmail(ev.target.value)} />
+              <Input type="text"
+                     placeholder="Phone Number"
+                     value={phoneNumber}
+                     name="phoneNumber"
+                     onChange={ev => setPhoneNumber(ev.target.value)} />
               <CityHolder>
                 <Input type="text"
                        placeholder="City"
@@ -236,13 +332,46 @@ export default function CartPage() {
                      name="country"
                      onChange={ev => setCountry(ev.target.value)} />
               <Button black block
-                      onClick={goToPayment}>
-                Continue to payment
+                      onClick={checkOut}>
+                Check Out
               </Button>
+              {error && <div style={{ color: 'red', marginTop: '10px' }}>{typeof error === 'string' ? error : JSON.stringify(error)}</div>}
             </Box>
           )}
         </ColumnsWrapper>
       </Center>
+      <Modal
+        isOpen={showModal}
+        onRequestClose={() => setShowModal(false)}
+        contentLabel="Password Required"
+        ariaHideApp={false}
+        className="w-1/2 mx-auto mt-20"
+      >
+        <ModalContent>
+        <h2>{promptLogin ? "Login Required" : "Enter Password to Create New Account"}</h2>
+          {promptLogin ? (
+            <p>Please log in to continue with your order.</p>
+          ) : (
+            <p>You need to create an account before ordering. Please check your email and enter your password.</p>
+          )}
+          <Input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={ev => setEmail(ev.target.value)}
+            readOnly={promptLogin} // Add this line to make the input read-only if promptLogin is true
+          />
+          <Input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={ev => setPassword(ev.target.value)}
+          />
+          <Button black block onClick={handleModalSubmit}>
+            Submit
+          </Button>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

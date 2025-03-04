@@ -4,7 +4,7 @@ import axiosInstance from "@/components/AxiosInstance";
 export async function fetchRecentProducts(page) {
   try {
     const response = await axiosInstance.get(`/products/recent/${page}`);
-    console.log(response.data);
+    // console.log(response.data);
     return response.data;
   } catch (error) {
     console.error('Error fetching products:', error);
@@ -36,7 +36,7 @@ export async function fetchProductById(id) {
 export async function fetchProductsByIds(ids) {
   try {
     const requestBody = { ids: ids };
-    console.log(requestBody);
+    // console.log(requestBody);
     const response = await axiosInstance.post('/products/ids', { "ids": ids });
     // console.log(response.data);
     return response.data;
@@ -48,7 +48,7 @@ export async function fetchProductsByIds(ids) {
 export async function fetchProductsByIdsX(ids) {
   try {
     const requestBody = { ids: ids };
-    console.log(requestBody);
+    // console.log(requestBody);
     const response = await axiosInstance.post('/products/ids', requestBody);
     const products = response.data;
 
