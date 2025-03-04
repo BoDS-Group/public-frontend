@@ -46,6 +46,7 @@ export function CartContextProvider({ children }) {
 
   function clearCart() {
     setCartProducts({});
+    ls?.removeItem('cart');
   }
 
   return (
