@@ -11,7 +11,7 @@ axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token'); // Replace with your method of storing the token
     if (token) {
-      console.log(token);
+      // console.log(token);
       config.headers['Authorization'] = `Bearer ${token}`;
     }
     return config;

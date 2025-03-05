@@ -12,6 +12,7 @@ import { fetchProductsByIdsX } from "@/utils/api";
 import Modal from "react-modal";
 import { loadStripe } from "@stripe/stripe-js";
 import { useRouter } from "next/router";
+import { set } from "mongoose";
 
 const ColumnsWrapper = styled.div`
   display: grid;
@@ -92,6 +93,7 @@ export default function CartPage() {
   const [country, setCountry] = useState("Finland");
   const [password, setPassword] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [promptLogin, setPromptLogin] = useState(false);
@@ -112,12 +114,12 @@ export default function CartPage() {
       }
     }
     fetchData();
-    console.log(localStorage.getItem("token"));
+    // console.log(localStorage.getItem("token"));
   }, [cartProducts]);
 
   useEffect(() => {
     if (token) {
-      localStorage.setItem("token", access_token);
+      localStorage.setItem("token", token);
       setPromptLogin(false);
       setGoToPayment(true);
     }
@@ -139,14 +141,20 @@ export default function CartPage() {
   }, []);
 
   useEffect(() => {
-    if (isSuccess) {
+    if (!window?.location.href.includes("success")) {
+      localStorage.setItem("deliveryOption", deliveryOption);
+    }
+  }, [deliveryOption]);
+  
+  useEffect(() => {
+    if (isSuccess && !hasSubmitted) {
       async function submitOrderAsync() {
         await submitOrder();
       }
       submitOrderAsync();
-      clearCart();
+      setHasSubmitted(true);
     }
-  }, [isSuccess]);
+  }, [isSuccess, hasSubmitted]);
 
   function moreOfThisProduct(id) {
     addProduct(id);
@@ -191,6 +199,7 @@ export default function CartPage() {
         console.error("Checkout error detail:", err.response.data.detail);
         setError(err.response.data.detail);
         if (err.response.data.detail === "Password or JWT token required") {
+          setPromptLogin(false);
           setShowModal(true);
         }
         if (err.response.data.detail === "User already exists") {
@@ -205,10 +214,20 @@ export default function CartPage() {
   }
 
   async function submitOrder() {
+    if (hasSubmitted) {
+      return;
+    }
+    if (Object.keys(cartProducts).length === 0) {
+      return;
+    }
+    console.log("Submitting order...");
+    const storedDeliveryOption = localStorage.getItem("deliveryOption");
+    console.log("Delivery option:", storedDeliveryOption);
     const endpoint =
-      deliveryOption === "storePickup"
+      storedDeliveryOption === "storePickup"
         ? "/orders/submit-order-offline"
         : "/orders/submit-order-online";
+    console.log("Cart products:", cartProducts);
 
     const cartItems = products
       .map((p) => ({
@@ -219,14 +238,14 @@ export default function CartPage() {
       .filter((item) => item.quantity > 0);
 
     const payload = {
-      line_items: cartItems,
+      // line_items: cartItems,
       cart_items: cartProducts,
       name,
       email,
       phone_number: phoneNumber,
     };
 
-    if (deliveryOption === "homeDelivery") {
+    if (storedDeliveryOption === "homeDelivery") {
       payload.city = city;
       payload.postal_code = postalCode;
       payload.street_address = streetAddress;
@@ -236,6 +255,7 @@ export default function CartPage() {
 
     const response = await axiosInstance.post(endpoint, payload);
     console.log("Checkout success:", response.data);
+    clearCart();
   }
 
   function handleModalSubmit() {
