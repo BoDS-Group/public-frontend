@@ -12,7 +12,6 @@ import { fetchProductsByIdsX } from "@/utils/api";
 import Modal from "react-modal";
 import { loadStripe } from "@stripe/stripe-js";
 import { useRouter } from "next/router";
-import { set } from "mongoose";
 
 const ColumnsWrapper = styled.div`
   display: grid;
@@ -175,6 +174,7 @@ export default function CartPage() {
         name,
         email,
         phone_number: phoneNumber,
+        password : password
       };
 
       if (deliveryOption === "homeDelivery") {
@@ -182,7 +182,6 @@ export default function CartPage() {
         payload.postal_code = postalCode;
         payload.street_address = streetAddress;
         payload.country = country;
-        payload.password = password;
       }
 
       const response = await axiosInstance.post(endpoint, payload);

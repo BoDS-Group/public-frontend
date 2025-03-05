@@ -11,6 +11,16 @@ export async function fetchRecentProducts(page) {
   }
 }
 
+export async function searchProducts(searchTitle) {
+  try {
+    const response = await axiosInstance.post(`/products/search`, { title: searchTitle });
+    // console.log(response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching products:', error);
+  }
+}
+
 export async function fetchImageURL(image_id) {
     try {
         const response = await axiosInstance.get(`/image/${image_id}`);
